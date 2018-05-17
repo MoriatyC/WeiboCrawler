@@ -31,10 +31,7 @@ public class WeiboSearch implements PageProcessor, Runnable{
     public WeiboRepository weiboRepository;
     private SimpleDateFormat df = new SimpleDateFormat("yyyy年MM月dd日 HH:mm", Locale.CHINA);   
     private Site site = Site.me().setRetryTimes(3).setSleepTime(1000).setTimeOut(10000)
-            .addHeader("Cookie", "_T_WM=40e67082a2264b7627921f877496e8b7; "
-                    + "SUB=_2A253-EAiDeRhGeVN4lAU8CnNzTiIHXVVA2BqrDV6PUJbkdBeLVn5kW1NTJSZ2CqRILEXoKbO-NYj-YlpAtHyl_bK;"
-                    + " SUHB=0ebdbT23lJJzZH; "
-                    + "SCF=AvnrxNGTzU0T2OyzByO_Gq5nvwAeCXn6ZLvvuu6GgRcgcXbxrmkKg_oPO0gcy4vMltckvQT7go2IwmLR2TDgXYo.");
+            .addHeader("Cookie", "your cookie");
     
     
     WeiboSearch weibo;
