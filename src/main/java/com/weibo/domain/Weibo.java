@@ -31,4 +31,5 @@ public class Weibo {
     @Lob
     @Column(length = 16777216)  
     private String text;
+    private String wid;
 }

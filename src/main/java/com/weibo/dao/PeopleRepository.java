@@ -10,4 +10,5 @@ import com.weibo.domain.People;
 **/
 public interface PeopleRepository extends JpaRepository<People, Integer>{
     People findByHome(String url);
+    People findByPid(String pid);
 }

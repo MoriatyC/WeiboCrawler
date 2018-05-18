@@ -5,11 +5,14 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import javax.annotation.PostConstruct;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;import com.weibo.dao.PeopleRepository;
+import org.springframework.stereotype.Service;
+
+import com.weibo.dao.PeopleRepository;
 import com.weibo.dao.WeiboRepository;
 import com.weibo.domain.People;
 import com.weibo.domain.Weibo;
@@ -25,27 +28,29 @@ import us.codecraft.webmagic.processor.PageProcessor;
 **/
 @Service
 public class WeiboSearch implements PageProcessor, Runnable{
+    private static final Logger log = LoggerFactory.getLogger(WeiboSearch.class);
+    private AtomicInteger counter = new AtomicInteger(1);
     @Autowired
     public PeopleRepository peopleRepository;
     @Autowired
     public WeiboRepository weiboRepository;
     private SimpleDateFormat df = new SimpleDateFormat("yyyy年MM月dd日 HH:mm", Locale.CHINA);   
-    private Site site = Site.me().setRetryTimes(3).setSleepTime(1000).setTimeOut(10000)
-            .addHeader("Cookie", "_T_WM=40e67082a2264b7627921f877496e8b7; "
-                    + "SUB=_2A253-EAiDeRhGeVN4lAU8CnNzTiIHXVVA2BqrDV6PUJbkdBeLVn5kW1NTJSZ2CqRILEXoKbO-NYj-YlpAtHyl_bK;"
-                    + " SUHB=0ebdbT23lJJzZH; "
-                    + "SCF=AvnrxNGTzU0T2OyzByO_Gq5nvwAeCXn6ZLvvuu6GgRcgcXbxrmkKg_oPO0gcy4vMltckvQT7go2IwmLR2TDgXYo.");
+    private Site site = Site.me().setRetryTimes(3).setSleepTime(3000).setTimeOut(10000)
+            .addHeader("Cookie", "");
+    private String target = "https://weibo.cn/search/mblog?hideSearchFrame=&keyword"
+            + "=%E6%BB%B4%E6%BB%B4&advancedfilter=1&starttime=20180510&endtime=20180512&sort=time&page=";
     
-    
-    WeiboSearch weibo;
-    @PostConstruct
-    public void init() {
-        weibo = this;
-        weibo.peopleRepository = this.peopleRepository;
-    }
     @Override
     public void process(Page page) {
+        if (counter.intValue() >= 51) {
+            return;
+        }
+        
+        page.addTargetRequest(target + counter.getAndIncrement());
 //        System.out.println(page.getHtml().css("div.c").xpath("//div[@id]").all());
+        List<String> idList = page.getHtml().css("div.c").xpath("//div[@id]/@id").all();
+        System.out.println(idList);
+        System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++");
         //主页
         List<String> homeList = page.getHtml().xpath("//a[@class='nk']/@href").all();
         //微博名
@@ -65,31 +70,32 @@ public class WeiboSearch implements PageProcessor, Runnable{
         List<String> commentList = page.getHtml().css("div.c").xpath("//div[@id]").regex("[^原文]评论\\[(\\d+)\\]</a>").all();
         //转发
         List<String> forwardList = page.getHtml().css("div.c").xpath("//div[@id]").regex("转发\\[(\\d+)\\]</a>").all();
-//        System.out.println(homeList.size());
-//        System.out.println(nameList.size());
-//        System.out.println(timeList);
-//        System.out.println(timeList.size());
-//        System.out.println(textList.size());
-//        System.out.println(upvoteList.size());
-//        System.out.println(commentList.size());
-//        System.out.println(forwardList.size());
         for (int i = 0; i < homeList.size(); i++) {
-            Weibo wb = new Weibo();
-            People people = peopleRepository.findByHome(homeList.get(i));
-            if (people == null) {
-                people = new People();
-                people.setHome(homeList.get(i));
-                people.setName(nameList.get(i));
-                peopleRepository.save(people);
-            } 
-            wb.setAuthor(people);
-            wb.setTime(timeList.get(i));
-            wb.setText(textList.get(i));
-            wb.setUpvote(Integer.valueOf(upvoteList.get(i)));
-            wb.setUpvote(Integer.valueOf(commentList.get(i)));
-            wb.setUpvote(Integer.valueOf(forwardList.get(i)));
-            weiboRepository.save(wb);
-            System.out.println("=================================");
+            String wid = idList.get(i);
+            
+            Weibo wb = weiboRepository.findByWid(wid);
+            if (wb == null) {
+                People people = peopleRepository.findByHome(homeList.get(i));
+                if (people == null) {
+                    people = new People();
+                    people.setHome(homeList.get(i));
+                    people.setName(nameList.get(i));
+                    peopleRepository.save(people);
+                } 
+                wb = new Weibo();
+                wb.setWid(wid);
+                wb.setAuthor(people);
+                wb.setTime(timeList.get(i));
+                wb.setText(textList.get(i));
+                wb.setUpvote(Integer.valueOf(upvoteList.get(i)));
+                wb.setComment(Integer.valueOf(commentList.get(i)));
+                wb.setForward(Integer.valueOf(forwardList.get(i)));
+                weiboRepository.save(wb);
+                log.info("处理中=================================");
+            } else {
+                log.info("该条微博已存在！！！！！");
+            }
+            
         }
         
     }
@@ -132,8 +138,8 @@ public class WeiboSearch implements PageProcessor, Runnable{
     @Override
     public  void run() {
         Spider.create(this)
-        .addUrl("https://weibo.cn/search/mblog?hideSearchFrame=&keyword=%E6%BB%B4%E6%BB%B4&advancedfilter=1&starttime=20180510&endtime=20180512&sort=time&page=1")
-        .thread(5)
+        .addUrl(target + counter.getAndIncrement())
+        .thread(8)
         .run();
     }
 }
