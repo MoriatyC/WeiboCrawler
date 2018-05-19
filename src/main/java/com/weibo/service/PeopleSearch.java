@@ -2,6 +2,7 @@ package com.weibo.service;
 
 import java.text.MessageFormat;
 import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,14 +10,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.weibo.dao.PeopleRepository;
+import com.weibo.dao.RedisDao;
 import com.weibo.domain.People;
+import com.weibo.utils.ConnectTest;
 
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
 import us.codecraft.webmagic.downloader.HttpClientDownloader;
 import us.codecraft.webmagic.processor.PageProcessor;
-import us.codecraft.webmagic.proxy.Proxy;
 import us.codecraft.webmagic.proxy.SimpleProxyProvider;
 
 /**
@@ -29,15 +31,12 @@ public class PeopleSearch implements PageProcessor, Runnable{
     private static final String PREFIX = "https://weibo.cn";
     private static final String PATTERN = "https://weibo.cn/account/privacy/tags/?uid={0}&st=cc817b";
     @Autowired
+    RedisDao redis;
+    @Autowired
     public PeopleRepository peopleRepository;
-    private Site site = Site.me().setRetryTimes(3).setSleepTime(10000).setTimeOut(10000)
+    private Site site = Site.me().setRetryTimes(3).setSleepTime(10000).setTimeOut(5000)
             .addHeader("Cookie", "");
     HttpClientDownloader httpClientDownloader = new HttpClientDownloader();
-    {
-      httpClientDownloader.setProxyProvider(SimpleProxyProvider.from(
-      new Proxy("127.0.0.1",1080)));
-      
-    }
 
     @Override
     public void process(Page page) {
@@ -57,15 +56,12 @@ public class PeopleSearch implements PageProcessor, Runnable{
         people.setSex(page.getHtml().regex("性别:(\\S+)").get());
         people.setLocation(page.getHtml().regex("地区:(\\S+)").get());
         people.setBirth(page.getHtml().regex("生日:(\\S+)").get());
-        System.out.println(people);
-        System.out.println("==================================================================");
+        log.info("info parse==================================================================");
         peopleRepository.save(people);
     }
     
     public void parseHome(Page page) {
-        System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
-        System.out.println(page.getHtml());
-        System.out.println("+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+        log.info("home pars+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
         People people = peopleRepository.findByHome(page.getUrl().get());
         String v = page.getHtml().xpath("//div[@class='u']").xpath("//img[@alt='V']").get();
         if (v != null) {
@@ -89,7 +85,7 @@ public class PeopleSearch implements PageProcessor, Runnable{
     }
     
     public void parseTags(Page page) {
-        System.out.println("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
+        log.info("tags parse~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~");
         String pid = page.getUrl().regex("uid=(\\d+)&").get();
         People people = peopleRepository.findByPid(pid);
         List<String> tags = page.getHtml().xpath("//div[@class='c']").regex("stag=1\">(\\S+)</a>&nbsp;").all();
@@ -120,10 +116,17 @@ public class PeopleSearch implements PageProcessor, Runnable{
         for (int i = 0; i < peopleList.size(); i++) {
             targets[i] = peopleList.get(i).getHome();
         }
+        Map<String, String> proxys = redis.hgetall("proxy:hash");
+        if (proxys != null && proxys.size() != 0) {
+            httpClientDownloader.setProxyProvider(SimpleProxyProvider.from(ConnectTest.mapToProxy(proxys)));
+        } 
+        
         Spider.create(this)
         .setDownloader(httpClientDownloader)
         .addUrl(targets)
-        .thread(1)
+        .thread(4)
         .run();
     }
+    
+
 }

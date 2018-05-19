@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -13,14 +14,18 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.weibo.dao.PeopleRepository;
+import com.weibo.dao.RedisDao;
 import com.weibo.dao.WeiboRepository;
 import com.weibo.domain.People;
 import com.weibo.domain.Weibo;
+import com.weibo.utils.ConnectTest;
 
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
+import us.codecraft.webmagic.downloader.HttpClientDownloader;
 import us.codecraft.webmagic.processor.PageProcessor;
+import us.codecraft.webmagic.proxy.SimpleProxyProvider;
 
 /**
 *@author: Menghui Chen
@@ -28,18 +33,23 @@ import us.codecraft.webmagic.processor.PageProcessor;
 **/
 @Service
 public class WeiboSearch implements PageProcessor, Runnable{
-    private static final Logger log = LoggerFactory.getLogger(WeiboSearch.class);
-    private AtomicInteger counter = new AtomicInteger(1);
+    @Autowired
+    RedisDao redis;
     @Autowired
     public PeopleRepository peopleRepository;
     @Autowired
     public WeiboRepository weiboRepository;
+    
+    private static final Logger log = LoggerFactory.getLogger(WeiboSearch.class);
+    private AtomicInteger counter = new AtomicInteger(1);
+    
     private SimpleDateFormat df = new SimpleDateFormat("yyyy年MM月dd日 HH:mm", Locale.CHINA);   
-    private Site site = Site.me().setRetryTimes(3).setSleepTime(3000).setTimeOut(10000)
+    private Site site = Site.me().setRetryTimes(3).setSleepTime(10000).setTimeOut(5000)
             .addHeader("Cookie", "");
     private String target = "https://weibo.cn/search/mblog?hideSearchFrame=&keyword"
             + "=%E6%BB%B4%E6%BB%B4&advancedfilter=1&starttime=20180510&endtime=20180512&sort=time&page=";
     
+    private HttpClientDownloader httpClientDownloader = new HttpClientDownloader();
     @Override
     public void process(Page page) {
         if (counter.intValue() >= 51) {
@@ -50,7 +60,8 @@ public class WeiboSearch implements PageProcessor, Runnable{
 //        System.out.println(page.getHtml().css("div.c").xpath("//div[@id]").all());
         List<String> idList = page.getHtml().css("div.c").xpath("//div[@id]/@id").all();
         System.out.println(idList);
-        System.out.println("++++++++++++++++++++++++++++++++++++++++++++++++");
+        System.out.println(page.getHtml());
+        log.info("++++++++++++++++++++++++++++++++++++++++++++++++");
         //主页
         List<String> homeList = page.getHtml().xpath("//a[@class='nk']/@href").all();
         //微博名
@@ -137,9 +148,13 @@ public class WeiboSearch implements PageProcessor, Runnable{
     }
     @Override
     public  void run() {
+        Map<String, String> proxys = redis.hgetall("proxy:hash");
+        if (proxys != null && proxys.size() != 0) {
+            httpClientDownloader.setProxyProvider(SimpleProxyProvider.from(ConnectTest.mapToProxy(proxys)));
+        } 
         Spider.create(this)
         .addUrl(target + counter.getAndIncrement())
-        .thread(8)
+        .thread(4)
         .run();
     }
 }
