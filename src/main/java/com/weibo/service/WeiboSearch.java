@@ -40,6 +40,7 @@ public class WeiboSearch implements PageProcessor, Runnable{
     public PeopleRepository peopleRepository;
     @Autowired
     public WeiboRepository weiboRepository;
+
     
     private static final Logger log = LoggerFactory.getLogger(WeiboSearch.class);
     private AtomicInteger counter = new AtomicInteger(1);
