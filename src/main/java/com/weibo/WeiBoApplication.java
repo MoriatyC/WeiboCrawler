@@ -30,4 +30,5 @@ public class WeiBoApplication implements CommandLineRunner{
 //	    Thread t3 = new Thread(proxyCrawler);
 //	    t3.start();
 	}
+
 }

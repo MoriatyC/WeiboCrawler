@@ -25,6 +25,7 @@ import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
 import us.codecraft.webmagic.downloader.HttpClientDownloader;
 import us.codecraft.webmagic.processor.PageProcessor;
+import us.codecraft.webmagic.proxy.Proxy;
 import us.codecraft.webmagic.proxy.SimpleProxyProvider;
 
 /**
@@ -44,7 +45,7 @@ public class WeiboSearch implements PageProcessor, Runnable{
     private AtomicInteger counter = new AtomicInteger(1);
     
     private SimpleDateFormat df = new SimpleDateFormat("yyyy年MM月dd日 HH:mm", Locale.CHINA);   
-    private Site site = Site.me().setRetryTimes(3).setSleepTime(10000).setTimeOut(5000)
+    private Site site = Site.me().setRetryTimes(6).setSleepTime(10000).setTimeOut(7000)
             .addHeader("Cookie", "");
     private String target = "https://weibo.cn/search/mblog?hideSearchFrame=&keyword"
             + "=%E6%BB%B4%E6%BB%B4&advancedfilter=1&starttime=20180510&endtime=20180512&sort=time&page=";
@@ -52,6 +53,7 @@ public class WeiboSearch implements PageProcessor, Runnable{
     private HttpClientDownloader httpClientDownloader = new HttpClientDownloader();
     @Override
     public void process(Page page) {
+        System.out.println(page.getHtml());
         if (counter.intValue() >= 51) {
             return;
         }
@@ -148,12 +150,16 @@ public class WeiboSearch implements PageProcessor, Runnable{
     }
     @Override
     public  void run() {
-        Map<String, String> proxys = redis.hgetall("proxy:hash");
-        if (proxys != null && proxys.size() != 0) {
-            httpClientDownloader.setProxyProvider(SimpleProxyProvider.from(ConnectTest.mapToProxy(proxys)));
-        } 
+        
+//        Map<String, String> proxys = ConnectTest.init(redis);
+//        if (proxys != null && proxys.size() != 0) {
+//            httpClientDownloader.setProxyProvider(SimpleProxyProvider.from(ConnectTest.mapToProxy(proxys)));
+//        } 
+        httpClientDownloader.setProxyProvider(SimpleProxyProvider.from(new Proxy("111.67.195.119", 80)));
+        log.info("开始爬取！！！！！！！！！！！！！！！！！！！！！！！！！！！");
         Spider.create(this)
         .addUrl(target + counter.getAndIncrement())
+        .setDownloader(httpClientDownloader)
         .thread(4)
         .run();
     }

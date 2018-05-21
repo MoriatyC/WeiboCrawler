@@ -1,6 +1,7 @@
 package com.weibo.utils;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.http.HttpHost;
@@ -11,6 +12,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 
+import com.weibo.dao.RedisDao;
+
 import us.codecraft.webmagic.proxy.Proxy;
 
 /**
@@ -18,6 +21,21 @@ import us.codecraft.webmagic.proxy.Proxy;
 *@version: 2018年5月19日上午10:29:14
 **/
 public class ConnectTest {
+    public static Map<String, String> init(RedisDao redis) {
+        Map<String, String> proxy = redis.hgetall("proxy:hash");
+        System.out.println(proxy.size());
+        Iterator<Map.Entry<String, String>> it = proxy.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, String> item = it.next();
+            if (!connectTest(item.getKey(), Integer.valueOf(item.getValue()))) {
+                it.remove();
+            }
+        }
+        redis.del("proxy:hash");
+        redis.hsetWithExpired("proxy:hash", proxy);
+        System.out.println(proxy.size());
+        return proxy;
+    }
     public static Proxy[] mapToProxy(Map<String, String> proxys) {
         Proxy[] tmp = new Proxy[proxys.size()];
         int i = 0;
@@ -32,8 +50,8 @@ public class ConnectTest {
         try{
             HttpHost proxy = new HttpHost(ip, port, "http");
             RequestConfig config = RequestConfig.custom()
-                    .setConnectTimeout(1000)//设置连接超时时间  
-                    .setSocketTimeout(1000)//设置读取超时时间  
+                    .setConnectTimeout(6000)//设置连接超时时间  
+                    .setSocketTimeout(6000)//设置读取超时时间  
                     .setProxy(proxy)
                     .build();
             HttpGet request = new HttpGet("http://gs.dlut.edu.cn/");
@@ -51,7 +69,7 @@ public class ConnectTest {
                 System.out.println("connect time out");
 //                e.printStackTrace();
             } finally {
-                if (response != null) {
+                if (response != null && response.getStatusLine().getStatusCode() == 200) {
                     try {
                         judge = true;
                         response.close();

@@ -19,6 +19,7 @@ import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
 import us.codecraft.webmagic.downloader.HttpClientDownloader;
 import us.codecraft.webmagic.processor.PageProcessor;
+import us.codecraft.webmagic.proxy.Proxy;
 import us.codecraft.webmagic.proxy.SimpleProxyProvider;
 
 /**
@@ -51,17 +52,17 @@ public class PeopleSearch implements PageProcessor, Runnable{
     }
     
     public void parseInfo(Page page) {
+        log.info("info parse==================================================================");
         String pid = page.getUrl().toString().split("/")[3];
         People people = peopleRepository.findByPid(pid);
         people.setSex(page.getHtml().regex("性别:(\\S+)").get());
         people.setLocation(page.getHtml().regex("地区:(\\S+)").get());
         people.setBirth(page.getHtml().regex("生日:(\\S+)").get());
-        log.info("info parse==================================================================");
         peopleRepository.save(people);
     }
     
     public void parseHome(Page page) {
-        log.info("home pars+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
+        log.info("home parse+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++");
         People people = peopleRepository.findByHome(page.getUrl().get());
         String v = page.getHtml().xpath("//div[@class='u']").xpath("//img[@alt='V']").get();
         if (v != null) {
@@ -111,16 +112,17 @@ public class PeopleSearch implements PageProcessor, Runnable{
 
     @Override
     public void run() {
+        
         List<People> peopleList = peopleRepository.findAll();
         String[] targets = new String[peopleList.size()];
         for (int i = 0; i < peopleList.size(); i++) {
             targets[i] = peopleList.get(i).getHome();
         }
-        Map<String, String> proxys = redis.hgetall("proxy:hash");
+        Map<String, String> proxys = ConnectTest.init(redis);
         if (proxys != null && proxys.size() != 0) {
             httpClientDownloader.setProxyProvider(SimpleProxyProvider.from(ConnectTest.mapToProxy(proxys)));
         } 
-        
+//        httpClientDownloader.setProxyProvider(SimpleProxyProvider.from(new Proxy("127.0.0.1", 1080)));
         Spider.create(this)
         .setDownloader(httpClientDownloader)
         .addUrl(targets)

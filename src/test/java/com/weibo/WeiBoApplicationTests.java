@@ -1,5 +1,8 @@
 package com.weibo;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +18,8 @@ public class WeiBoApplicationTests {
     RedisDao redis;
 	@Test
 	public void contextLoads() {
-	    redis.lpush("test", "123");
+	    Map<String, String> proxy123 = new HashMap<>();
+	    redis.hsetWithExpired("proxy:hash", proxy123);
 	}
 
 }

@@ -60,7 +60,9 @@ public class ProxyCrawler implements PageProcessor, Runnable{
                 proxy.put(ips.get(i), ports.get(i));
             }
         }
-        redis.hsetWithExpired("proxy:hash", proxy);
+        if (proxy.size() != 0) {
+            redis.hsetWithExpired("proxy:hash", proxy);
+        }
         // "http://www\\.kuaidaili\\.com/free/inha/\\d+/"
         // http://gs.dlut.edu.cn/index/zytz.htm
     }

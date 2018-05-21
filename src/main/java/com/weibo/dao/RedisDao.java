@@ -65,4 +65,10 @@ public class RedisDao {
         jedis.close();
         return map;
     }
+    public void del(String key) {
+        Jedis jedis = jedisPool.getResource();
+        jedis.del(key);
+        jedis.close();
+        
+    }
 }
